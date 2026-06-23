@@ -41,22 +41,23 @@ jobs:
           # 2. Copy the newly compiled executable binary
           Copy-Item -Path .\build\bin\BdoLauncher.exe -Destination .\dist_staging\
 
-          # 3. Copy dependencies from your local assets folder safely
+          # 3. Copy the nvidiaProfileInspector folder asset recursively
           if (Test-Path .\assets\nvidiaProfileInspector) {
               Copy-Item -Path .\assets\nvidiaProfileInspector -Destination .\dist_staging\ -Recurse
           }
+
+          # 4. Copy the populated profiles folder asset recursively (including your .nip files)
           if (Test-Path .\assets\profiles) {
               Copy-Item -Path .\assets\profiles -Destination .\dist_staging\ -Recurse
           }
 
-          # 4. Compress the folder into a structured distribution zip
+          # 5. Compress the folder into a structured distribution zip
           Compress-Archive -Path .\dist_staging\* -DestinationPath .\build\bin\BdoLauncher_v${{ github.ref_name }}.zip
 
       - name: Generate Automated GitHub Release Page
         uses: softprops/action-gh-release@v2
         with:
           files: |
-            build/bin/BdoLauncher.exe
             build/bin/BdoLauncher_*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
