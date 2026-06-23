@@ -5,7 +5,9 @@ import {
   LoadAvailableProfiles,
   ExecuteGame,
   ApplyApplicationUpdate,
-  GetCurrentVersion, // 💡 Import our brand new update action module
+  GetCurrentVersion,
+  SaveSettingUpdate,
+  GetSettings,
 } from "../wailsjs/go/backend/App";
 import "./style.css";
 
@@ -27,8 +29,11 @@ export default function App() {
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [isLaunching, setIsLaunching] = useState(false);
   const [currentVersion, setCurrentVersion] = useState("1.0.0");
+  const [executablePath, setExecutablePath] = useState("");
+  const [isSteam, setIsSteam] = useState(false);
+  const [affinityMask, setAffinityMask] = useState("0");
 
-  // 💡 State hooks to track available system package revisions
+  // State hooks to track available system package revisions
   const [remoteUpdate, setRemoteUpdate] = useState<UpdateData | null>(null);
   const [isUpdating, setIsUpdating] = useState(false);
 
@@ -46,10 +51,34 @@ export default function App() {
         console.error(err);
       });
 
+    // Fetch and seed local persistent user configurations on boot
+    GetSettings()
+      .then((config) => {
+        if (config) {
+          setExecutablePath(config.executablePath);
+          setCustomPath(config.executablePath);
+          setIsSteam(config.isSteam);
+
+          const savedMask = String(config.affinityMask || "0");
+          setAffinityMask(savedMask);
+
+          if (savedMask !== "0" && savedMask !== "") {
+            setAffinity(savedMask.toUpperCase());
+          }
+
+          if (config.executablePath) {
+            setLaunchMode("custom");
+          } else if (config.isSteam) {
+            setLaunchMode("steam");
+          }
+        }
+      })
+      .catch((err) => console.error("Failed to load settings:", err));
+
     CheckLauncherUpdates()
       .then((updateInfo) => {
         if (updateInfo && updateInfo.has_update) {
-          setRemoteUpdate(updateInfo); // Store update payload context data
+          setRemoteUpdate(updateInfo);
           addLog("warn", `Update available — ${updateInfo.version}`);
         } else {
           addLog("info", "Launcher is up to date.");
@@ -58,17 +87,31 @@ export default function App() {
       .catch((err) => addLog("error", `Update check failed: ${err}`));
   }, []);
 
+  const handleSettingsChange = (
+    path: string,
+    steamToggle: boolean,
+    maskStr: string,
+  ) => {
+    setExecutablePath(path);
+    setCustomPath(path);
+    setIsSteam(steamToggle);
+    setAffinityMask(maskStr);
+
+    // Parse the hex value into an integer right at the Wails bridge boundary line for Go
+    const parsedMask = parseInt(maskStr, 16);
+    SaveSettingUpdate(path, steamToggle, maskStr);
+  };
+
   const addLog = (type: "info" | "warn" | "error" | "ok", message: string) => {
     const timestamp = new Date().toLocaleTimeString("en-US", { hour12: false });
     const entryString = `${type}|${timestamp}|${message}`;
 
     setConsoleLogs((prev) => {
-      // If the log array has entries, check if the last message matches this one
       if (prev.length > 0) {
         const lastEntry = prev[prev.length - 1];
         const [, , lastMsg] = lastEntry.split("|");
         if (lastMsg === message) {
-          return prev; // Duplicate blocked! Return unchanged state array
+          return prev;
         }
       }
       return [...prev, entryString];
@@ -81,23 +124,27 @@ export default function App() {
     const activeNipPath = profiles[selectedProfile] || "";
     if (activeNipPath) addLog("info", `Profile loaded: ${selectedProfile}.nip`);
 
+    const finalMode = launchMode === "custom" && isSteam ? "steam" : launchMode;
+    const finalPath = launchMode === "custom" ? executablePath : customPath;
+
+    const finalAffinity =
+      affinityMask !== "0" && affinityMask !== "" ? affinityMask : affinity;
+
     const result = await ExecuteGame(
-      launchMode,
-      customPath,
+      finalMode,
+      finalPath,
       activeNipPath,
-      affinity,
+      finalAffinity.toUpperCase(),
     );
     addLog("ok", `${result}`);
     setIsLaunching(false);
   };
 
-  // 💡 Function to trigger the automated software rewrite sequence
   const handleSystemUpdate = async () => {
     if (!remoteUpdate) return;
     setIsUpdating(true);
     addLog("info", "Downloading new executable engine layer from GitHub...");
 
-    // 💡 Clean backend mapping injection! No more .replace() modifications
     const statusResult = await ApplyApplicationUpdate(
       remoteUpdate.download_url,
     );
@@ -127,7 +174,6 @@ export default function App() {
             </h1>
           </div>
 
-          {/* Version badge section with our inline updater button trigger */}
           <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
             {remoteUpdate && (
               <button
@@ -158,33 +204,108 @@ export default function App() {
                     value={launchMode}
                     onChange={(e) => setLaunchMode(e.target.value)}
                   >
-                    <option value="pearl">Pearl Abyss Launcher</option>
-                    <option value="steam">Steam</option>
+                    <option value="pearl">
+                      Pearl Abyss Launcher (Standalone)
+                    </option>
+                    <option value="steam">Steam Client</option>
                     <option value="custom">Custom Path</option>
                   </select>
                 </div>
 
                 <div className="field">
                   <label className="field-label">CPU Affinity Mask</label>
-                  <input
-                    type="text"
-                    className="mono"
-                    value={affinity}
-                    onChange={(e) => setAffinity(e.target.value)}
-                    placeholder="FFFF"
-                  />
+                  <div className="affinity-input-wrapper">
+                    <input
+                      type="text"
+                      className="mono"
+                      value={affinity}
+                      disabled={affinityMask !== "0" && affinityMask !== ""}
+                      onChange={(e) => {
+                        setAffinity(e.target.value);
+                        if (affinityMask !== "0" && affinityMask !== "") {
+                          handleSettingsChange(
+                            executablePath,
+                            isSteam,
+                            e.target.value,
+                          );
+                        }
+                      }}
+                      placeholder="FFFF"
+                    />
+                    <label
+                      className="checkbox-container affinity-lock-check"
+                      title="Lock Affinity Profile"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={affinityMask !== "0" && affinityMask !== ""}
+                        onChange={(e) => {
+                          const nextMask = e.target.checked ? affinity : "0";
+                          handleSettingsChange(
+                            executablePath,
+                            isSteam,
+                            nextMask,
+                          );
+                        }}
+                      />
+                      <span className="checkmark"></span>
+                    </label>
+                  </div>
                 </div>
               </div>
 
               {launchMode === "custom" && (
                 <div className="field field-slide">
-                  <label className="field-label">Executable Path</label>
+                  <label className="field-label">
+                    Executable Path Override
+                  </label>
                   <input
                     type="text"
-                    value={customPath}
-                    onChange={(e) => setCustomPath(e.target.value)}
+                    value={executablePath}
+                    onChange={(e) =>
+                      handleSettingsChange(
+                        e.target.value,
+                        isSteam,
+                        affinityMask,
+                      )
+                    }
                     placeholder="D:\BlackDesert\BlackDesertLauncher.exe"
                   />
+
+                  {/* Platform Mode Checkbox selectors */}
+                  <div className="platform-toggle-row">
+                    <label className="checkbox-container">
+                      <input
+                        type="checkbox"
+                        checked={!isSteam}
+                        onChange={() =>
+                          handleSettingsChange(
+                            executablePath,
+                            false,
+                            affinityMask,
+                          )
+                        }
+                      />
+                      <span className="checkmark circular"></span>
+                      Standalone Web Client
+                    </label>
+
+                    <label className="checkbox-container">
+                      <input
+                        type="checkbox"
+                        checked={isSteam}
+                        onChange={() =>
+                          handleSettingsChange(
+                            executablePath,
+                            true,
+                            affinityMask,
+                          )
+                        }
+                      />
+                      <span className="checkmark circular"></span>
+                      Steam Client
+                    </label>
+                  </div>
                 </div>
               )}
 

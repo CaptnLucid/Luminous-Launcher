@@ -428,3 +428,115 @@ input[type="text"]::placeholder {
     box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
   }
 }
+/* ── CUSTOM CHECKBOX LAYOUT RULES ── */
+.platform-toggle-row {
+  display: flex;
+  gap: 24px;
+  margin-top: 8px;
+  padding: 4px 2px;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding-left: 24px;
+  cursor: pointer;
+  font-size: 12px;
+  color: #a1a1aa;
+  user-select: none;
+  font-weight: 500;
+  transition: color 0.15s ease;
+}
+
+.checkbox-container:hover {
+  color: #e4e4e7;
+}
+
+.checkbox-container input {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: absolute;
+  top: 50%;
+  left: 0;
+  transform: translateY(-50%);
+  height: 14px;
+  width: 14px;
+  background-color: #111115;
+  border: 1px solid #1e1e28;
+  border-radius: 4px;
+  transition: all 0.15s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.checkmark.circular {
+  border-radius: 50%;
+}
+
+.checkbox-container input:checked ~ .checkmark {
+  background-color: #7c3aed;
+  border-color: #7c3aed;
+  box-shadow: 0 0 8px rgba(124, 58, 237, 0.4);
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.checkbox-container input:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkbox-container .checkmark:after {
+  left: 4px;
+  top: 1px;
+  width: 3px;
+  height: 7px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-container .checkmark.circular:after {
+  left: 4px;
+  top: 4px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #ffffff;
+  border: none;
+  transform: none;
+}
+
+/* ── AFFINITY LOCK BOX INTEGRATION ── */
+.affinity-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+}
+
+.affinity-input-wrapper input {
+  padding-right: 36px;
+}
+
+.affinity-input-wrapper input:disabled {
+  color: #8b5cf6;
+  border-color: rgba(139, 92, 246, 0.3);
+  background: #121016;
+  box-shadow: inset 0 0 10px rgba(139, 92, 246, 0.05);
+}
+
+.affinity-lock-check {
+  position: absolute;
+  right: 12px;
+  padding-left: 0;
+  width: 14px;
+  height: 14px;
+}

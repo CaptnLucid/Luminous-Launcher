@@ -87,27 +87,48 @@ func (a *App) ApplyApplicationUpdate(downloadURL string) string {
 }
 
 func (a *App) ExecuteGame(mode string, customPath string, nipPath string, hexMask string) string {
-	config := LauncherConfig{
-		LaunchMode:    mode,
-		CustomExePath: customPath,
-	}
+    config := LauncherConfig{
+        LaunchMode:    mode,
+        CustomExePath: customPath,
+    }
 
-	targetExe := config.ResolveExePath()
+    // 💡 Fix: If a custom path override is provided, use it directly instead of resolving a default
+    targetExe := customPath
+    if targetExe == "" {
+        targetExe = config.ResolveExePath()
+    }
 
-	if nipPath != "" {
-		if err := InjectNipProfile(a.baseDir, nipPath); err != nil {
-			return "Profile Injection Error: " + err.Error()
-		}
-	}
+    if nipPath != "" {
+        if err := InjectNipProfile(a.baseDir, nipPath); err != nil {
+            return "Profile Injection Error: " + err.Error()
+        }
+    }
 
-	err := SpawnGameWithAffinity(targetExe, mode == "steam", hexMask)
-	if err != nil {
-		return "Launch Error: " + err.Error()
-	}
+    // This correctly passes down your exact D:\... path, and mode == "steam" still catches your check box!
+    err := SpawnGameWithAffinity(targetExe, mode == "steam", hexMask)
+    if err != nil {
+        return "Launch Error: " + err.Error()
+    }
 
-	return "Success"
+    return "Success"
 }
 
 func (a *App) GetCurrentVersion() string {
 	return CurrentVersion
+}
+
+// GetSettings handles transmitting the saved or default config state to the UI
+func (a *App) GetSettings() AppConfig {
+	return LoadConfig()
+}
+
+// SaveSettingUpdate updates specific properties on the fly from UI elements
+func (a *App) SaveSettingUpdate(path string, isSteam bool, affinity string) bool {
+	config := AppConfig{
+		ExecutablePath: path,
+		IsSteam:        isSteam,
+		AffinityMask:   affinity,
+	}
+	err := SaveConfig(config)
+	return err == nil
 }
