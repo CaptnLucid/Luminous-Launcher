@@ -9,7 +9,7 @@ import (
 	"time"
 )
 
-const CurrentVersion = "1.0.0"
+var CurrentVersion = "1.0.0"
 const GitHubApiURL = "https://api.github.com/repos/CaptnLucid/Luminous-Launcher/releases/latest"
 
 // GitHubAsset maps the nested asset structure containing the direct download payload

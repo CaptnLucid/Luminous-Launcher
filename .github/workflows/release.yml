@@ -30,7 +30,8 @@ jobs:
 
       - name: Compile and Bundle Optimized Production Asset Binary
         run: |
-          wails build -platform windows/amd64
+          # 💡 Uses -ldflags to inject the git tag version directly into the Go variable at build time
+          wails build -platform windows/amd64 -compilerflags "-ldflags -X 'main.backend.CurrentVersion=${{ github.ref_name }}'"
 
       - name: Structure and Compress Release Zip Archive
         shell: powershell
