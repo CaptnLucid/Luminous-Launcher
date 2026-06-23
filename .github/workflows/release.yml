@@ -32,9 +32,31 @@ jobs:
         run: |
           wails build -platform windows/amd64
 
+      - name: Structure and Compress Release Zip Archive
+        shell: powershell
+        run: |
+          # 1. Create a clean temporary workspace for the release payload
+          New-Item -ItemType Directory -Force -Path .\dist_staging
+
+          # 2. Copy the newly compiled executable binary
+          Copy-Item -Path .\build\bin\BdoLauncher.exe -Destination .\dist_staging\
+
+          # 3. Copy dependencies from your local assets folder safely
+          if (Test-Path .\assets\nvidiaProfileInspector) {
+              Copy-Item -Path .\assets\nvidiaProfileInspector -Destination .\dist_staging\ -Recurse
+          }
+          if (Test-Path .\assets\profiles) {
+              Copy-Item -Path .\assets\profiles -Destination .\dist_staging\ -Recurse
+          }
+
+          # 4. Compress the folder into a structured distribution zip
+          Compress-Archive -Path .\dist_staging\* -DestinationPath .\build\bin\BdoLauncher_v${{ github.ref_name }}.zip
+
       - name: Generate Automated GitHub Release Page
         uses: softprops/action-gh-release@v2
         with:
-          files: build/bin/BdoLauncher.exe
+          files: |
+            build/bin/BdoLauncher.exe
+            build/bin/BdoLauncher_*.zip
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
