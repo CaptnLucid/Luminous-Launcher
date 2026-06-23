@@ -4,3 +4,5 @@ frontend/dist
 wailsjs/
 .wails/
 *.exe
+
+!assets/nvidiaProfileInspector/nvidiaProfileInspector.exe
