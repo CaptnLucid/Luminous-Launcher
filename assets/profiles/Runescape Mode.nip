@@ -3,8 +3,8 @@
   <Profile>
     <ProfileName>Black Desert</ProfileName>
     <Executeables>
-      <string>blackdesert64.exe</string>
       <string>blackdesert32.exe</string>
+      <string>blackdesert64.exe</string>
       <string>blackdesert_launcher.exe</string>
     </Executeables>
     <Settings>
@@ -21,15 +21,51 @@
         <ValueType>Dword</ValueType>
       </ProfileSetting>
       <ProfileSetting>
+        <SettingNameInfo>Texture filtering - LOD Bias</SettingNameInfo>
+        <SettingID>7573135</SettingID>
+        <SettingValue>24</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
         <SettingNameInfo>Vertical Sync</SettingNameInfo>
         <SettingID>11041231</SettingID>
         <SettingValue>138504007</SettingValue>
         <ValueType>Dword</ValueType>
       </ProfileSetting>
       <ProfileSetting>
+        <SettingNameInfo>Texture filtering - Quality</SettingNameInfo>
+        <SettingID>13510289</SettingID>
+        <SettingValue>20</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
         <SettingNameInfo>Flag to control smooth AFR behavior</SettingNameInfo>
         <SettingID>270198627</SettingID>
         <SettingValue>0</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>No override of Anisotropic filtering</SettingNameInfo>
+        <SettingID>272354485</SettingID>
+        <SettingValue>1</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>Anisotropic filtering mode</SettingNameInfo>
+        <SettingID>282245910</SettingID>
+        <SettingValue>1</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo>Antialiasing - Transparency Supersampling</SettingNameInfo>
+        <SettingID>282364549</SettingID>
+        <SettingValue>8</SettingValue>
+        <ValueType>Dword</ValueType>
+      </ProfileSetting>
+      <ProfileSetting>
+        <SettingNameInfo />
+        <SettingID>541081465</SettingID>
+        <SettingValue>48</SettingValue>
         <ValueType>Dword</ValueType>
       </ProfileSetting>
       <ProfileSetting>

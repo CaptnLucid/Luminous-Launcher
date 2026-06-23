@@ -186,7 +186,7 @@ export default function App() {
                   : `INSTALL UPDATE ${remoteUpdate.version}`}
               </button>
             )}
-            <span className="version-badge">v{currentVersion}</span>
+            <span className="version-badge">{currentVersion}</span>
           </div>
         </header>
 
