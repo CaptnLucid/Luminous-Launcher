@@ -40,7 +40,7 @@ export default function App() {
       .then((updateInfo) => {
         if (updateInfo && updateInfo.has_update) {
           setRemoteUpdate(updateInfo); // Store update payload context data
-          addLog("warn", `Update available — v${updateInfo.version}`);
+          addLog("warn", `Update available — ${updateInfo.version}`);
         } else {
           addLog("info", "Launcher is up to date.");
         }
@@ -50,7 +50,19 @@ export default function App() {
 
   const addLog = (type: "info" | "warn" | "error" | "ok", message: string) => {
     const timestamp = new Date().toLocaleTimeString("en-US", { hour12: false });
-    setConsoleLogs((prev) => [...prev, `${type}|${timestamp}|${message}`]);
+    const entryString = `${type}|${timestamp}|${message}`;
+
+    setConsoleLogs((prev) => {
+      // If the log array has entries, check if the last message matches this one
+      if (prev.length > 0) {
+        const lastEntry = prev[prev.length - 1];
+        const [, , lastMsg] = lastEntry.split("|");
+        if (lastMsg === message) {
+          return prev; // Duplicate blocked! Return unchanged state array
+        }
+      }
+      return [...prev, entryString];
+    });
   };
 
   const handleLaunch = async () => {
@@ -99,9 +111,9 @@ export default function App() {
         {/* Header */}
         <header className="header">
           <div className="header-left">
-            <span className="header-eyebrow">BDO Engine Controller</span>
+            <span className="header-eyebrow">Custom BDO Launcher</span>
             <h1 className="header-title">
-              LUCIDIOUS <span>LAUNCHER</span>
+              LUMINOUS <span>LAUNCHER</span>
             </h1>
           </div>
 
@@ -115,7 +127,7 @@ export default function App() {
               >
                 {isUpdating
                   ? "UPDATING..."
-                  : `INSTALL UPDATE v${remoteUpdate.version}`}
+                  : `INSTALL UPDATE ${remoteUpdate.version}`}
               </button>
             )}
             <span className="version-badge">v1.0.0</span>

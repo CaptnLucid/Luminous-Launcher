@@ -380,3 +380,51 @@ input[type="text"]::placeholder {
     opacity: 0.4;
   }
 }
+
+/* ── UPDATE ALERT BADGE BUTTON ── */
+.update-badge-btn {
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 500;
+  color: #ffffff;
+  background: linear-gradient(135deg, #a855f7 0%, #7c3aed 100%);
+  border: 1px solid rgba(168, 85, 247, 0.4);
+  padding: 5px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+  animation: gentlePulse 2s infinite ease-in-out;
+}
+
+.update-badge-btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: 0 0 18px rgba(124, 58, 237, 0.5);
+  opacity: 0.95;
+}
+
+.update-badge-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+
+.update-badge-btn.processing {
+  background: #18181b;
+  border-color: #27272a;
+  color: #71717a;
+  cursor: not-allowed;
+  animation: none;
+  box-shadow: none;
+}
+
+@keyframes gentlePulse {
+  0%,
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 12px rgba(124, 58, 237, 0.3);
+  }
+  50% {
+    transform: scale(1.02);
+    box-shadow: 0 0 20px rgba(124, 58, 237, 0.5);
+  }
+}
