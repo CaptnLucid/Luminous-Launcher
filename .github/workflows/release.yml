@@ -30,8 +30,8 @@ jobs:
 
       - name: Compile and Bundle Optimized Production Asset Binary
         run: |
-          # 💡 Fixed powershell escaping and mapped your exact go.mod module path
-          wails build -platform windows/amd64 -ldflags "-X `\"BDOLauncher/backend.CurrentVersion=${{ github.ref_name }}`\""
+          # 💡 Uses explicit nested PowerShell escaping to keep the assignment block unified
+          wails build -platform windows/amd64 -ldflags "-X 'BDOLauncher/backend.CurrentVersion=${{ github.ref_name }}'"
 
       - name: Structure and Compress Release Zip Archive
         shell: powershell
