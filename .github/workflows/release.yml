@@ -1,0 +1,40 @@
+name: Build and Automatically Release Launcher
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout Source Code Repo
+        uses: actions/checkout@v4
+
+      - name: Setup Go Runtime Environment
+        uses: actions/setup-go@v5
+        with:
+          go-version: "1.22"
+
+      - name: Setup Node.js Runtime Environment (Required for Frontend Assets)
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Install Wails Compiler CLI Framework
+        run: go install github.com/wailsapp/wails/v2/cmd/wails@latest
+
+      - name: Compile and Bundle Optimized Production Asset Binary
+        run: |
+          wails build -platform windows/amd64
+
+      - name: Generate Automated GitHub Release Page
+        uses: softprops/action-gh-release@v2
+        with:
+          files: build/bin/BdoLauncher.exe
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

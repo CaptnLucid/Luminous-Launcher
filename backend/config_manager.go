@@ -2,16 +2,17 @@
 package backend
 
 import (
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 )
 
 type LauncherConfig struct {
-	LaunchMode			string `json:"launch_mode"`
-	CustomExePath		string `json:"custom_exe_path"`
-	AffinityMask		string `json:"affinity_mask"`
-	SelectedProfile		string `json:"selected_profile"`
+	LaunchMode      string `json:"launch_mode"`
+	CustomExePath   string `json:"custom_exe_path"`
+	AffinityMask    string `json:"affinity_mask"`
+	SelectedProfile string `json:"selected_profile"`
 }
 
 const (
@@ -32,11 +33,46 @@ func (c *LauncherConfig) ResolveExePath() string {
 	}
 }
 
-func ScanNipProfiles(baseDir string) map[string]string {
-	profiles := make (map[string]string)
+// AutoPopulateEnvironment ensures directories exist, copying missing assets if needed
+func AutoPopulateEnvironment(baseDir string) {
 	profilesDir := filepath.Join(baseDir, "profiles")
+	inspectorDir := filepath.Join(baseDir, "nvidiaProfileInspector")
+	localAssetsDir := filepath.Join(baseDir, "assets")
 
+	// Always make sure the directories themselves exist
 	_ = os.MkdirAll(profilesDir, 0755)
+	_ = os.MkdirAll(inspectorDir, 0755)
+
+	// If the bundled assets folder is present, copy dependencies into place
+	if _, err := os.Stat(localAssetsDir); err == nil {
+		// Auto-populate inspector binary if missing
+		srcInspector := filepath.Join(localAssetsDir, "nvidiaProfileInspector", "nvidiaProfileInspector.exe")
+		destInspector := filepath.Join(inspectorDir, "nvidiaProfileInspector.exe")
+		if _, err := os.Stat(destInspector); os.IsNotExist(err) {
+			copyFile(srcInspector, destInspector)
+		}
+
+		// Auto-populate starter profiles
+		srcProfilesDir := filepath.Join(localAssetsDir, "profiles")
+		if files, err := os.ReadDir(srcProfilesDir); err == nil {
+			for _, file := range files {
+				if !file.IsDir() && strings.HasSuffix(strings.ToLower(file.Name()), ".nip") {
+					destProfilePath := filepath.Join(profilesDir, file.Name())
+					if _, err := os.Stat(destProfilePath); os.IsNotExist(err) {
+						copyFile(filepath.Join(srcProfilesDir, file.Name()), destProfilePath)
+					}
+				}
+			}
+		}
+	}
+}
+
+func ScanNipProfiles(baseDir string) map[string]string {
+	// Trigger environment check prior to scanning layouts
+	AutoPopulateEnvironment(baseDir)
+
+	profiles := make(map[string]string)
+	profilesDir := filepath.Join(baseDir, "profiles")
 
 	files, err := os.ReadDir(profilesDir)
 	if err != nil {
@@ -50,4 +86,21 @@ func ScanNipProfiles(baseDir string) map[string]string {
 		}
 	}
 	return profiles
+}
+
+// Helper utility to clone file contents cleanly
+func copyFile(src, dst string) {
+	sourceFile, err := os.Open(src)
+	if err != nil {
+		return
+	}
+	defer sourceFile.Close()
+
+	destFile, err := os.Create(dst)
+	if err != nil {
+		return
+	}
+	defer destFile.Close()
+
+	_, _ = io.Copy(destFile, sourceFile)
 }

@@ -1,14 +1,20 @@
+// backend/app.go
 package backend
 
 import (
 	"context"
+	"fmt"
+	"io"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"syscall"
 )
 
 type App struct {
-	ctx      context.Context
-	baseDir  string
+	ctx     context.Context
+	baseDir string
 }
 
 func NewApp() *App {
@@ -29,6 +35,57 @@ func (a *App) LoadAvailableProfiles() map[string]string {
 	return ScanNipProfiles(a.baseDir)
 }
 
+// ApplyApplicationUpdate streams down the raw asset attachment and handles process swaps
+func (a *App) ApplyApplicationUpdate(downloadURL string) string {
+	currentExe, err := os.Executable()
+	if err != nil {
+		return "Error finding current executable path: " + err.Error()
+	}
+
+	// Create path for the temporary installer payload stream
+	tempNewExe := currentExe + ".tmp"
+
+	// 1. Download the executable payload binary
+	resp, err := http.Get(downloadURL)
+	if err != nil {
+		return "Download failed: " + err.Error()
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Sprintf("Server returned bad status code: %d", resp.StatusCode)
+	}
+
+	out, err := os.Create(tempNewExe)
+	if err != nil {
+		return "Failed to initialize temporary storage path: " + err.Error()
+	}
+	
+	_, err = io.Copy(out, resp.Body)
+	out.Close() // Explicitly close file buffer locks before shifting
+	if err != nil {
+		return "Failed streaming attachment data: " + err.Error()
+	}
+
+	// 2. Spawn a detached cmd background worker loop script 
+	// This kills the engine, waits a fraction of a second, replaces the file, and runs the new app.
+	cmdScript := fmt.Sprintf(
+		"taskkill /F /PID %d && timeout /T 1 /NOBREAK && move /Y \"%s\" \"%s\" && start \"\" \"%s\"",
+		os.Getpid(), tempNewExe, currentExe, currentExe,
+	)
+
+	worker := exec.Command("cmd", "/C", cmdScript)
+	worker.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} // Silently run completely hidden
+
+	if err := worker.Start(); err != nil {
+		return "Process swapping failure: " + err.Error()
+	}
+
+	// Exit the current running main app thread gracefully to unlock the system handle
+	os.Exit(0)
+	return "Success"
+}
+
 func (a *App) ExecuteGame(mode string, customPath string, nipPath string, hexMask string) string {
 	config := LauncherConfig{
 		LaunchMode:    mode,
@@ -39,7 +96,7 @@ func (a *App) ExecuteGame(mode string, customPath string, nipPath string, hexMas
 
 	if nipPath != "" {
 		if err := InjectNipProfile(a.baseDir, nipPath); err != nil {
-			return "Profile Injection Error:" + err.Error()
+			return "Profile Injection Error: " + err.Error()
 		}
 	}
 

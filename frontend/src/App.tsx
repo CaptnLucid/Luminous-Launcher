@@ -4,8 +4,18 @@ import {
   CheckLauncherUpdates,
   LoadAvailableProfiles,
   ExecuteGame,
+  ApplyApplicationUpdate, // 💡 Import our brand new update action module
 } from "../wailsjs/go/backend/App";
 import "./style.css";
+
+// Interface for mapping response contracts cleanly
+interface UpdateData {
+  has_update: boolean;
+  version: string;
+  changelog: string;
+  url: string;
+  download_url: string;
+}
 
 export default function App() {
   const [profiles, setProfiles] = useState<Record<string, string>>({});
@@ -16,6 +26,10 @@ export default function App() {
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [isLaunching, setIsLaunching] = useState(false);
 
+  // 💡 State hooks to track available system package revisions
+  const [remoteUpdate, setRemoteUpdate] = useState<UpdateData | null>(null);
+  const [isUpdating, setIsUpdating] = useState(false);
+
   useEffect(() => {
     LoadAvailableProfiles().then((res) => {
       setProfiles(res || {});
@@ -25,10 +39,8 @@ export default function App() {
     CheckLauncherUpdates()
       .then((updateInfo) => {
         if (updateInfo && updateInfo.has_update) {
+          setRemoteUpdate(updateInfo); // Store update payload context data
           addLog("warn", `Update available — v${updateInfo.version}`);
-          alert(
-            `New Update Available: ${updateInfo.version}\n\nChangelog:\n${updateInfo.changelog}\n\nDownload at: ${updateInfo.url}`,
-          );
         } else {
           addLog("info", "Launcher is up to date.");
         }
@@ -57,6 +69,23 @@ export default function App() {
     setIsLaunching(false);
   };
 
+  // 💡 Function to trigger the automated software rewrite sequence
+  const handleSystemUpdate = async () => {
+    if (!remoteUpdate) return;
+    setIsUpdating(true);
+    addLog("info", "Downloading new executable engine layer from GitHub...");
+
+    // 💡 Clean backend mapping injection! No more .replace() modifications
+    const statusResult = await ApplyApplicationUpdate(
+      remoteUpdate.download_url,
+    );
+
+    if (statusResult !== "Success") {
+      addLog("error", `Update sequence aborted: ${statusResult}`);
+      setIsUpdating(false);
+    }
+  };
+
   const logColor: Record<string, string> = {
     info: "#6b7280",
     warn: "#f59e0b",
@@ -70,12 +99,27 @@ export default function App() {
         {/* Header */}
         <header className="header">
           <div className="header-left">
-            <span className="header-eyebrow">BDO Launcher</span>
+            <span className="header-eyebrow">BDO Engine Controller</span>
             <h1 className="header-title">
-              LUMINOUS <span>LAUNCHER</span>
+              LUCIDIOUS <span>LAUNCHER</span>
             </h1>
           </div>
-          <span className="version-badge">v1.0.0</span>
+
+          {/* Version badge section with our inline updater button trigger */}
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            {remoteUpdate && (
+              <button
+                onClick={handleSystemUpdate}
+                disabled={isUpdating}
+                className={`update-badge-btn ${isUpdating ? "processing" : ""}`}
+              >
+                {isUpdating
+                  ? "UPDATING..."
+                  : `INSTALL UPDATE v${remoteUpdate.version}`}
+              </button>
+            )}
+            <span className="version-badge">v1.0.0</span>
+          </div>
         </header>
 
         {/* Main */}
@@ -85,7 +129,6 @@ export default function App() {
             <p className="section-label">Launch Configuration</p>
 
             <div className="field-group">
-              {/* Launch mode + Affinity side by side */}
               <div className="field-row">
                 <div className="field">
                   <label className="field-label">Distribution Target</label>
@@ -111,7 +154,6 @@ export default function App() {
                 </div>
               </div>
 
-              {/* Custom path — conditional */}
               {launchMode === "custom" && (
                 <div className="field field-slide">
                   <label className="field-label">Executable Path</label>
@@ -126,13 +168,9 @@ export default function App() {
 
               <div className="divider" />
 
-              {/* NIP Profile */}
               <div className="field">
                 <label className="field-label">
-                  Nvidia Inspector Profile{" "}
-                  <span style={{ color: "#71717a", fontWeight: 400 }}>
-                    (.nip)
-                  </span>
+                  Nvidia Inspector Profile (.nip)
                 </label>
                 <select
                   value={selectedProfile}
@@ -151,7 +189,6 @@ export default function App() {
 
           {/* Right: Log + Launch */}
           <div className="panel-right">
-            {/* Log */}
             <div className="log-area">
               <p className="section-label">Runtime Log</p>
               <div className="log-scroll">
@@ -182,7 +219,6 @@ export default function App() {
               </div>
             </div>
 
-            {/* Launch */}
             <div className="launch-area">
               <button
                 className={`launch-btn${isLaunching ? " launching" : ""}`}
