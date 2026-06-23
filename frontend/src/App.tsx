@@ -4,7 +4,8 @@ import {
   CheckLauncherUpdates,
   LoadAvailableProfiles,
   ExecuteGame,
-  ApplyApplicationUpdate, // 💡 Import our brand new update action module
+  ApplyApplicationUpdate,
+  GetCurrentVersion, // 💡 Import our brand new update action module
 } from "../wailsjs/go/backend/App";
 import "./style.css";
 
@@ -25,6 +26,7 @@ export default function App() {
   const [affinity, setAffinity] = useState("FFFF");
   const [consoleLogs, setConsoleLogs] = useState<string[]>([]);
   const [isLaunching, setIsLaunching] = useState(false);
+  const [currentVersion, setCurrentVersion] = useState("1.0.0");
 
   // 💡 State hooks to track available system package revisions
   const [remoteUpdate, setRemoteUpdate] = useState<UpdateData | null>(null);
@@ -35,6 +37,14 @@ export default function App() {
       setProfiles(res || {});
       addLog("info", "System profile paths scanned.");
     });
+
+    GetCurrentVersion()
+      .then((v: string) => {
+        setCurrentVersion(v);
+      })
+      .catch((err) => {
+        console.error(err);
+      });
 
     CheckLauncherUpdates()
       .then((updateInfo) => {
@@ -130,7 +140,7 @@ export default function App() {
                   : `INSTALL UPDATE ${remoteUpdate.version}`}
               </button>
             )}
-            <span className="version-badge">v1.0.0</span>
+            <span className="version-badge">v{currentVersion}</span>
           </div>
         </header>
 

@@ -107,3 +107,7 @@ func (a *App) ExecuteGame(mode string, customPath string, nipPath string, hexMas
 
 	return "Success"
 }
+
+func (a *App) GetCurrentVersion() string {
+	return CurrentVersion
+}
