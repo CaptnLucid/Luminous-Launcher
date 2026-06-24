@@ -19,7 +19,7 @@ func DetectOptimalAffinityMask() (string, []string) {
 	if totalCores > 64 {
 		totalCores = 64
 	}
-	fallbackMask := fmt.Sprintf("%04X", (uint64(1)<<totalCores)-1)
+	fallbackMask := fmt.Sprintf("%X", (uint64(1)<<totalCores)-1)
 	logs = append(logs, fmt.Sprintf("Logical processors detected: %d (fallback mask: %s)", totalCores, fallbackMask))
 
 	psScript := `
@@ -29,8 +29,6 @@ $logical = [int]$cpu.NumberOfLogicalProcessors
 Write-Output "$physical $logical"
 `
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psScript)
-
-	// Hide the PowerShell console window — without this a terminal flashes briefly on screen.
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	out, err := cmd.Output()
@@ -56,25 +54,35 @@ Write-Output "$physical $logical"
 
 	hasHT := logicalCores > physicalCores
 	if hasHT {
-		logs = append(logs, "Hyperthreading / hybrid architecture detected. Targeting one thread per physical core.")
+		logs = append(logs, "Hyperthreading / SMT detected. Targeting one thread per physical core.")
 	} else {
-		logs = append(logs, "Uniform core architecture detected (no HT). Targeting all logical processors.")
+		logs = append(logs, "Uniform core architecture detected (no SMT). Targeting all logical processors.")
 	}
 
 	if physicalCores > 64 {
 		physicalCores = 64
 	}
-	if logicalCores > 64 {
-		logicalCores = 64
+
+	// Target half the physical cores — one thread each.
+	// This matches the BDO community recommended affinity values:
+	//   i7-13700KF (8 P-cores) → 4 cores → 5555
+	//   AMD 7900X  (12 cores)  → 6 cores → 555
+	// Using half avoids thermal/scheduling contention while keeping
+	// the game on the fastest cores.
+	coresToTarget := physicalCores / 2
+	if coresToTarget == 0 {
+		coresToTarget = 1
 	}
 
 	var finalMask uint64
 	if hasHT {
-		for i := 0; i < physicalCores; i++ {
+		// Every other bit — one primary thread per physical core
+		for i := 0; i < coresToTarget; i++ {
 			finalMask |= 1 << uint(i*2)
 		}
 	} else {
-		finalMask = (uint64(1) << uint(physicalCores)) - 1
+		// Consecutive bits — one thread per core, no HT sibling to skip
+		finalMask = (uint64(1) << uint(coresToTarget)) - 1
 	}
 
 	if finalMask == 0 {
@@ -82,11 +90,10 @@ Write-Output "$physical $logical"
 		return fallbackMask, logs
 	}
 
-	finalMask = finalMask & 0xFFFF
-
-	// %04X = uppercase hex, minimum 4 characters, zero-padded.
-	// Keeps the field consistent (e.g. 5555 not 55555555).
-	hexMask := fmt.Sprintf("%04X", finalMask)
-	logs = append(logs, fmt.Sprintf("Optimal affinity mask resolved: 0x%s", hexMask))
+	// No zero-padding — let the mask be as wide as it naturally needs to be.
+	// 13700KF → 5555 (4 P-cores × HT = 8 bits = 4 hex chars)
+	// 7900X   → 555  (6 cores / 2 = 3 hex chars)
+	hexMask := fmt.Sprintf("%X", finalMask)
+	logs = append(logs, fmt.Sprintf("Optimal affinity mask resolved: 0x%s (%d cores targeted)", hexMask, coresToTarget))
 	return hexMask, logs
 }

@@ -7,6 +7,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 func InjectNipProfile(baseDir, nipPath string) error {
@@ -41,7 +42,14 @@ func SpawnGameWithAffinity(exePath string, isSteam bool, hexMask string) error {
 		return nil
 	}
 
-	go applyWin32AffinityMask(cmd.Process.Pid, uintptr(mask))
+	// Apply affinity in a goroutine so we don't block the UI, but wait 500ms
+	// first to let the launcher finish initializing — matches the synchronous
+	// behaviour of the Windows "Start /affinity" command.
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		applyWin32AffinityMask(cmd.Process.Pid, uintptr(mask))
+	}()
+
 	return nil
 }
 
