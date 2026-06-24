@@ -15,21 +15,19 @@ func DetectOptimalAffinityMask() (string, []string) {
 	var logs []string
 	logs = append(logs, "Starting CPU topology detection via PowerShell query...")
 
-	totalCores := runtime.NumCPU()
-	if totalCores > 64 {
-		totalCores = 64
+	// Runtime fallback in case PowerShell fails
+	totalLogical := runtime.NumCPU()
+	if totalLogical > 64 {
+		totalLogical = 64
 	}
-	fallbackMask := fmt.Sprintf("%X", (uint64(1)<<totalCores)-1)
-	logs = append(logs, fmt.Sprintf("Logical processors detected: %d (fallback mask: %s)", totalCores, fallbackMask))
+	fallbackMask := fmt.Sprintf("%X", (uint64(1)<<uint(totalLogical/2))-1)
+	logs = append(logs, fmt.Sprintf("Runtime logical processors: %d (fallback mask: %s)", totalLogical, fallbackMask))
 
-	// Also query the manufacturer string so we can differentiate Intel vs AMD
-	// — they need different bit patterns for the same "half cores" goal.
 	psScript := `
 $cpu = Get-WmiObject Win32_Processor | Select-Object -First 1
 $physical = [int]$cpu.NumberOfCores
 $logical = [int]$cpu.NumberOfLogicalProcessors
-$mfr = $cpu.Manufacturer
-Write-Output "$physical $logical $mfr"
+Write-Output "$physical $logical"
 `
 	cmd := exec.Command("powershell", "-NoProfile", "-NonInteractive", "-Command", psScript)
 	cmd.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
@@ -41,7 +39,7 @@ Write-Output "$physical $logical $mfr"
 	}
 
 	parts := strings.Fields(strings.TrimSpace(string(out)))
-	if len(parts) < 2 {
+	if len(parts) != 2 {
 		logs = append(logs, fmt.Sprintf("Warning: unexpected PowerShell output %q — using fallback.", strings.TrimSpace(string(out))))
 		return fallbackMask, logs
 	}
@@ -53,54 +51,34 @@ Write-Output "$physical $logical $mfr"
 		return fallbackMask, logs
 	}
 
-	// Manufacturer string — "GenuineIntel" or "AuthenticAMD"
-	manufacturer := ""
-	if len(parts) >= 3 {
-		manufacturer = strings.ToLower(strings.Join(parts[2:], " "))
-	}
-	isIntel := strings.Contains(manufacturer, "intel")
-	isAMD := strings.Contains(manufacturer, "amd")
+	logs = append(logs, fmt.Sprintf("Physical cores: %d, Logical processors: %d", physicalCores, logicalCores))
 
-	logs = append(logs, fmt.Sprintf("Physical cores: %d, Logical processors: %d, Manufacturer: %s", physicalCores, logicalCores, manufacturer))
-
-	hasHT := logicalCores > physicalCores
-
-	if physicalCores > 64 {
-		physicalCores = 64
+	// How many logical processors per physical core (1 = no SMT, 2 = HT/SMT)
+	// Use ceiling division to handle hybrid architectures (e.g., Intel P/E-cores)
+	threadsPerCore := (logicalCores + physicalCores - 1) / physicalCores
+	hasSMT := threadsPerCore > 1
+	if hasSMT {
+		logs = append(logs, fmt.Sprintf("SMT/HT detected (%d threads per core).", threadsPerCore))
+	} else {
+		logs = append(logs, "No SMT detected (1 thread per core).")
 	}
 
+	// Target half the physical cores — universally recommended for BDO
+	// to avoid thermal contention while keeping the game on fastest cores.
 	coresToTarget := physicalCores / 2
 	if coresToTarget == 0 {
 		coresToTarget = 1
 	}
+	logs = append(logs, fmt.Sprintf("Targeting %d of %d physical cores.", coresToTarget, physicalCores))
 
+	// Build the mask by targeting the first logical processor of each
+	// physical core. With SMT, physical core N owns logical processors
+	// N*threadsPerCore and N*threadsPerCore+1, so we take the first one.
+	// Without SMT, logical == physical so we just set consecutive bits.
 	var finalMask uint64
-
-	switch {
-	case isIntel && hasHT:
-		// Intel HT: every other bit — one primary thread per physical core.
-		// i7-13700KF: 16 physical / 2 = 8 cores → 5555 5555 & keep lower 16 bits → 5555
-		logs = append(logs, fmt.Sprintf("Intel HT architecture. Targeting %d P-cores (every other logical processor).", coresToTarget))
-		for i := 0; i < coresToTarget; i++ {
-			finalMask |= 1 << uint(i*2)
-		}
-
-	case isAMD:
-		// AMD SMT: consecutive bits — half the physical cores starting from 0.
-		// 7900X: 12 physical / 2 = 6 cores → 111111b = 0x3F... but community uses 555
-		// 555 hex = 0101 0101 0101 = every other bit on 12 logical processors
-		// So AMD also uses every-other-bit but on logical (not physical) count.
-		// 12 logical / 2 = 6 bits set at positions 0,2,4,6,8,10 → 555
-		logs = append(logs, fmt.Sprintf("AMD SMT architecture. Targeting %d logical processors (every other).", logicalCores/2))
-		logicalToTarget := logicalCores / 2
-		for i := 0; i < logicalToTarget; i++ {
-			finalMask |= 1 << uint(i*2)
-		}
-
-	default:
-		// Unknown/no HT: consecutive bits up to half physical cores
-		logs = append(logs, fmt.Sprintf("Standard architecture. Targeting %d cores consecutively.", coresToTarget))
-		finalMask = (uint64(1) << uint(coresToTarget)) - 1
+	for i := 0; i < coresToTarget; i++ {
+		logicalIndex := i * threadsPerCore
+		finalMask |= 1 << uint(logicalIndex)
 	}
 
 	if finalMask == 0 {
@@ -109,6 +87,6 @@ Write-Output "$physical $logical $mfr"
 	}
 
 	hexMask := fmt.Sprintf("%X", finalMask)
-	logs = append(logs, fmt.Sprintf("Optimal affinity mask resolved: 0x%s", hexMask))
+	logs = append(logs, fmt.Sprintf("Optimal affinity mask resolved: %s", hexMask))
 	return hexMask, logs
 }
