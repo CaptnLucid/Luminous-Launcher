@@ -17,7 +17,7 @@ type LauncherConfig struct {
 
 const (
 	SteamDefaultPath = `C:\Program Files (x86)\Steam\steamapps\common\Black Desert Online\BlackDesertLauncher.exe`
-	PearlDefaultPath = `C:\Program Files (x86)\Black Desert Online\BlackDesertLauncher.exe`
+	PearlDefaultPath = `C:\Pearlabyss\BlackDesert\BlackDesertLauncher.exe`
 )
 
 func (c *LauncherConfig) ResolveExePath() string {
