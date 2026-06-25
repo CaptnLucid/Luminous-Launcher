@@ -11,6 +11,9 @@ import (
 	"os/exec"
 	"path/filepath"
 	"syscall"
+	"time"
+
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
 type App struct {
@@ -127,16 +130,23 @@ func (a *App) ExecuteGame(mode string, customPath string, nipPath string, hexMas
 		targetExe = config.ResolveExePath()
 	}
 
-	if nipPath != "" {
-		if err := InjectNipProfile(a.baseDir, nipPath); err != nil {
-			return "Profile Injection Error: " + err.Error()
-		}
-	}
-
 	err := SpawnGameWithAffinity(targetExe, mode == "steam", hexMask)
 	if err != nil {
 		return "Launch Error: " + err.Error()
 	}
+
+	if nipPath != "" {
+		go func() {
+			time.Sleep(5000 * time.Millisecond)
+			// TODO: Test with profile injection disabled
+			// InjectNipProfile(a.baseDir, nipPath)
+		}()
+	}
+
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		runtime.Hide(a.ctx)
+	}()
 
 	return "Success"
 }

@@ -2,12 +2,12 @@ package backend
 
 import (
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
-	"time"
 )
 
 func InjectNipProfile(baseDir, nipPath string) error {
@@ -25,42 +25,24 @@ func SpawnGameWithAffinity(exePath string, isSteam bool, hexMask string) error {
 		return errors.New("target game executable path could not be found")
 	}
 
-	var args []string
+	gameDir := filepath.Dir(exePath)
+	gameExe := filepath.Base(exePath)
+
+	var args string
 	if isSteam {
-		args = append(args, "-steam")
-	}
-
-	cmd := exec.Command(exePath, args...)
-	cmd.Dir = filepath.Dir(exePath)
-
-	if err := cmd.Start(); err != nil {
-		return err
+		args = " -steam"
 	}
 
 	mask, err := strconv.ParseUint(hexMask, 16, 64)
 	if err != nil || mask == 0 {
-		return nil
+		mask = 0xFFFF
 	}
 
-	// Apply affinity in a goroutine so we don't block the UI, but wait 500ms
-	// first to let the launcher finish initializing — matches the synchronous
-	// behaviour of the Windows "Start /affinity" command.
-	go func() {
-		time.Sleep(500 * time.Millisecond)
-		applyWin32AffinityMask(cmd.Process.Pid, uintptr(mask))
-	}()
-
-	return nil
-}
-
-func applyWin32AffinityMask(pid int, mask uintptr) {
-	kernel32 := syscall.NewLazyDLL("kernel32.dll")
-	openProcess := kernel32.NewProc("OpenProcess")
-	setAffinity := kernel32.NewProc("SetProcessAffinityMask")
-
-	handle, _, _ := openProcess.Call(0x0200, 0, uintptr(pid))
-	if handle != 0 {
-		defer syscall.CloseHandle(syscall.Handle(handle))
-		_, _, _ = setAffinity.Call(handle, mask)
+	cmdStr := fmt.Sprintf(`cd /d "%s" && Start /affinity %X %s%s`, gameDir, mask, gameExe, args)
+	cmd := exec.Command("cmd", "/C", cmdStr)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		HideWindow: true,
 	}
+
+	return cmd.Start()
 }
