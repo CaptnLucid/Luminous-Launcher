@@ -569,3 +569,26 @@ input[type="text"]::placeholder {
 .affinity-input-wrapper input {
   padding-right: 76px !important;
 }
+
+/* ── APPLY PROFILE BUTTON ── */
+.apply-profile-btn {
+  background: #111115;
+  border: 1px solid #2d2d3d;
+  border-radius: 6px;
+  color: #a1a1aa;
+  font-family: "JetBrains Mono", monospace;
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  padding: 7px 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  align-self: flex-start;
+}
+
+.apply-profile-btn:hover {
+  background: #7c3aed;
+  border-color: #8b5cf6;
+  color: #ffffff;
+  box-shadow: 0 0 10px rgba(124, 58, 237, 0.35);
+}

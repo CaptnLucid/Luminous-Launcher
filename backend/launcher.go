@@ -2,12 +2,12 @@ package backend
 
 import (
 	"errors"
-	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
 	"strconv"
 	"syscall"
+	"time"
 )
 
 func InjectNipProfile(baseDir, nipPath string) error {
@@ -25,12 +25,9 @@ func SpawnGameWithAffinity(exePath string, isSteam bool, hexMask string) error {
 		return errors.New("target game executable path could not be found")
 	}
 
-	gameDir := filepath.Dir(exePath)
-	gameExe := filepath.Base(exePath)
-
-	var args string
+	var args []string
 	if isSteam {
-		args = " -steam"
+		args = append(args, "-steam")
 	}
 
 	mask, err := strconv.ParseUint(hexMask, 16, 64)
@@ -38,11 +35,39 @@ func SpawnGameWithAffinity(exePath string, isSteam bool, hexMask string) error {
 		mask = 0xFFFF
 	}
 
-	cmdStr := fmt.Sprintf(`cd /d "%s" && Start /affinity %X %s%s`, gameDir, mask, gameExe, args)
-	cmd := exec.Command("cmd", "/C", cmdStr)
-	cmd.SysProcAttr = &syscall.SysProcAttr{
-		HideWindow: true,
+	cmd := exec.Command(exePath, args...)
+	cmd.Dir = filepath.Dir(exePath)
+
+	if err := cmd.Start(); err != nil {
+		return err
 	}
 
-	return cmd.Start()
+	go func() {
+		time.Sleep(500 * time.Millisecond)
+		applyWin32AffinityMask(cmd.Process.Pid, uintptr(mask))
+	}()
+
+	return nil
+}
+
+func applyWin32AffinityMask(pid int, mask uintptr) {
+	const PROCESS_SET_INFORMATION = 0x0200
+	
+	kernel32 := syscall.NewLazyDLL("kernel32.dll")
+	openProcess := kernel32.NewProc("OpenProcess")
+	setProcessAffinityMask := kernel32.NewProc("SetProcessAffinityMask")
+
+	// 1. Open process handle with permissions to modify configuration
+	handle, _, _ := openProcess.Call(
+		uintptr(PROCESS_SET_INFORMATION),
+		0,
+		uintptr(pid),
+	)
+	if handle == 0 {
+		return
+	}
+	defer syscall.CloseHandle(syscall.Handle(handle))
+
+	// 2. Safely commit the hex allocation directly to the Windows scheduler
+	_, _, _ = setProcessAffinityMask.Call(handle, mask)
 }

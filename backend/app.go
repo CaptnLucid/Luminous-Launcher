@@ -65,7 +65,7 @@ func (a *App) ApplyApplicationUpdate(downloadURL string) string {
 		return "Failed to buffer update package payload: " + err.Error()
 	}
 
-	// 2. Open up the compressed in-memory archive engine 
+	// 2. Open up the compressed in-memory archive engine
 	zipReader, err := zip.NewReader(bytes.NewReader(bodyBytes), int64(len(bodyBytes)))
 	if err != nil {
 		return "Downloaded package asset is not a valid zip archive: " + err.Error()
@@ -97,19 +97,19 @@ func (a *App) ApplyApplicationUpdate(downloadURL string) string {
 	}
 
 	_, err = io.Copy(out, zipFileStream)
-	out.Close() 
+	out.Close()
 	if err != nil {
 		return "Failed streaming unpacked binary payload context: " + err.Error()
 	}
 
-	// 5. Spawn a detached cmd background worker loop script 
+	// 5. Spawn a detached cmd background worker loop script
 	cmdScript := fmt.Sprintf(
 		"taskkill /F /PID %d && timeout /T 1 /NOBREAK && move /Y \"%s\" \"%s\" && start \"\" \"%s\"",
 		os.Getpid(), tempNewExe, currentExe, currentExe,
 	)
 
 	worker := exec.Command("cmd", "/C", cmdScript)
-	worker.SysProcAttr = &syscall.SysProcAttr{HideWindow: true} 
+	worker.SysProcAttr = &syscall.SysProcAttr{HideWindow: true}
 
 	if err := worker.Start(); err != nil {
 		return "Process swapping failure: " + err.Error()
@@ -119,7 +119,18 @@ func (a *App) ApplyApplicationUpdate(downloadURL string) string {
 	return "Success"
 }
 
-func (a *App) ExecuteGame(mode string, customPath string, nipPath string, hexMask string) string {
+// ApplyNipProfile is called directly from the frontend Apply button, independent of launch
+func (a *App) ApplyNipProfile(nipPath string) string {
+	if nipPath == "" {
+		return "No profile selected"
+	}
+	if err := InjectNipProfile(a.baseDir, nipPath); err != nil {
+		return "Profile Injection Error: " + err.Error()
+	}
+	return "Success"
+}
+
+func (a *App) ExecuteGame(mode string, customPath string, hexMask string) string {
 	config := LauncherConfig{
 		LaunchMode:    mode,
 		CustomExePath: customPath,
@@ -133,14 +144,6 @@ func (a *App) ExecuteGame(mode string, customPath string, nipPath string, hexMas
 	err := SpawnGameWithAffinity(targetExe, mode == "steam", hexMask)
 	if err != nil {
 		return "Launch Error: " + err.Error()
-	}
-
-	if nipPath != "" {
-		go func() {
-			time.Sleep(5000 * time.Millisecond)
-			// TODO: Test with profile injection disabled
-			// InjectNipProfile(a.baseDir, nipPath)
-		}()
 	}
 
 	go func() {
@@ -161,11 +164,12 @@ func (a *App) GetSettings() AppConfig {
 }
 
 // SaveSettingUpdate updates specific properties on the fly from UI elements
-func (a *App) SaveSettingUpdate(path string, isSteam bool, affinity string) bool {
+func (a *App) SaveSettingUpdate(path string, isSteam bool, affinity string, profile string) bool {
 	config := AppConfig{
-		ExecutablePath: path,
-		IsSteam:        isSteam,
-		AffinityMask:   affinity,
+		ExecutablePath:  path,
+		IsSteam:         isSteam,
+		AffinityMask:    affinity,
+		SelectedProfile: profile,
 	}
 	err := SaveConfig(config)
 	return err == nil
@@ -194,3 +198,18 @@ func (a *App) DetectCPUMask() map[string]interface{} {
 		"logs": r.logs,
 	}
 }
+
+func (a *App) ShowLayout() {
+	runtime.WindowShow(a.ctx)
+	runtime.WindowUnminimise(a.ctx)
+}
+
+// QuitLayout terminates the window loop and background processes cleanly
+func (a *App) QuitLayout() {
+	runtime.Quit(a.ctx)
+}
+
+func (a *App) GetContext() context.Context {
+	return a.ctx
+}
+

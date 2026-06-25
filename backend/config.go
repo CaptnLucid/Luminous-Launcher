@@ -7,9 +7,10 @@ import (
 )
 
 type AppConfig struct {
-	ExecutablePath string `json:"executablePath"`
-	IsSteam 	   bool   `json:"isSteam"`
-	AffinityMask   string `json:"affinityMask"`
+	ExecutablePath  string `json:"executablePath"`
+	IsSteam         bool   `json:"isSteam"`
+	AffinityMask    string `json:"affinityMask"`
+	SelectedProfile string `json:"selectedProfile"`
 }
 
 func GetConfigPath() string {
@@ -26,9 +27,10 @@ func LoadConfig() AppConfig {
 	file, err := os.ReadFile(path)
 	if err != nil {
 		return AppConfig{
-			ExecutablePath: "",
-			IsSteam: false,
-			AffinityMask: "FFFF",
+			ExecutablePath:  "",
+			IsSteam:         false,
+			AffinityMask:    "FFFF",
+			SelectedProfile: "",
 		}
 	}
 
