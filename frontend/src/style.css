@@ -100,6 +100,92 @@ body {
 }
 
 /* ---------------------------------------------------------------------- */
+/* Custom titlebar (replaces the native OS min/max/close chrome)          */
+/* ---------------------------------------------------------------------- */
+
+.titlebar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  height: 32px;
+  padding-left: 10px;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  --wails-draggable: drag;
+  user-select: none;
+}
+
+.titlebar-drag-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  height: 100%;
+  flex: 1;
+  min-width: 0;
+}
+
+.titlebar-icon {
+  width: 15px;
+  height: 15px;
+  border-radius: 3px;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
+.titlebar-label {
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.titlebar-controls {
+  display: flex;
+  align-items: stretch;
+  height: 100%;
+  --wails-draggable: no-drag;
+}
+
+.titlebar-btn {
+  appearance: none;
+  -webkit-appearance: none;
+  width: 44px;
+  height: 100%;
+  border: none;
+  background: transparent;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition:
+    background 100ms ease,
+    color 100ms ease;
+}
+
+.titlebar-btn:hover {
+  background: var(--surface-hover);
+  color: var(--text-primary);
+}
+
+.titlebar-btn:active {
+  background: var(--border);
+}
+
+.titlebar-btn-close:hover {
+  background: var(--error);
+  color: #ffffff;
+}
+
+.titlebar-btn-close:active {
+  background: #c14840;
+}
+
+/* ---------------------------------------------------------------------- */
 /* Header                                                                  */
 /* ---------------------------------------------------------------------- */
 
@@ -110,7 +196,6 @@ body {
   padding: 18px 28px;
   border-bottom: 1px solid var(--border);
   background: var(--bg-elevated);
-  -webkit-app-region: drag;
 }
 
 .logo-mark {
@@ -118,7 +203,8 @@ body {
   height: 34px;
   border-radius: var(--radius-md);
   flex-shrink: 0;
-  background: linear-gradient(135deg, var(--accent) 0%, #5c7fa3 100%);
+  object-fit: cover;
+  background: var(--surface);
   box-shadow:
     0 0 0 1px var(--border-strong),
     0 4px 14px rgba(143, 179, 217, 0.25);
@@ -147,7 +233,6 @@ body {
   display: flex;
   align-items: center;
   gap: 10px;
-  -webkit-app-region: no-drag;
 }
 
 .version-pill {

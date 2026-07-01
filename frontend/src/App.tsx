@@ -10,7 +10,12 @@ import {
   SaveSettingUpdate,
   GetSettings,
   GetRecommendedAffinity,
+  MinimizeWindow,
+  ToggleMaximizeWindow,
+  IsWindowMaximized,
+  QuitLayout,
 } from "../wailsjs/go/backend/App";
+import appIcon from "./assets/images/appicon.png";
 import "./App.css";
 
 interface UpdateData {
@@ -58,11 +63,17 @@ export default function App() {
   const [knownCPU, setKnownCPU] = useState<RecommendedAffinity | null>(null);
   const [isDetectingKnownCPU, setIsDetectingKnownCPU] = useState(false);
 
+  const [isMaximized, setIsMaximized] = useState(false);
+
   useEffect(() => {
     LoadAvailableProfiles().then((res) => {
       setProfiles(res || {});
       addLog("info", "System profile paths scanned.");
     });
+
+    IsWindowMaximized()
+      .then((maximized: boolean) => setIsMaximized(maximized))
+      .catch(() => {});
 
     GetCurrentVersion()
       .then((v: string) => {
@@ -201,6 +212,21 @@ export default function App() {
     }
   };
 
+  const handleMinimize = () => {
+    MinimizeWindow();
+  };
+
+  const handleToggleMaximize = () => {
+    ToggleMaximizeWindow();
+    // Optimistic flip; corrected on next mount/IsWindowMaximized check if
+    // the OS declines the request for some reason (e.g. a fixed-size window).
+    setIsMaximized((prev) => !prev);
+  };
+
+  const handleCloseWindow = () => {
+    QuitLayout();
+  };
+
   // Looks up the installed CPU against the hardcoded Ryzen affinity table and
   // surfaces the community-recommended mask, or FFFF if the CPU isn't a
   // recognized match.
@@ -214,12 +240,12 @@ export default function App() {
       if (result.matched) {
         addLog(
           "ok",
-          `Recognized ${result.label} — recommended mask ${result.affinityMask}`,
+          `Recognized ${result.label} — recommended mask 0x${result.affinityMask}`,
         );
       } else {
         addLog(
           "warn",
-          `CPU "${result.cpuName || "unknown"}" not in the known profile database — using default ${DEFAULT_AFFINITY}`,
+          `CPU "${result.cpuName || "unknown"}" not in the known profile database — using default 0x${DEFAULT_AFFINITY}`,
         );
       }
     } catch (err) {
@@ -237,8 +263,79 @@ export default function App() {
 
   return (
     <div className="app">
+      <div className="titlebar" onDoubleClick={handleToggleMaximize}>
+        <div className="titlebar-drag-area">
+          <img src={appIcon} alt="" className="titlebar-icon" />
+          <span className="titlebar-label">LUMINOUS LAUNCHER</span>
+        </div>
+
+        <div className="titlebar-controls">
+          <button
+            className="titlebar-btn"
+            onClick={handleMinimize}
+            aria-label="Minimize"
+            title="Minimize"
+          >
+            <svg viewBox="0 0 10 10" width="10" height="10">
+              <rect x="0" y="4.5" width="10" height="1" fill="currentColor" />
+            </svg>
+          </button>
+
+          <button
+            className="titlebar-btn"
+            onClick={handleToggleMaximize}
+            aria-label={isMaximized ? "Restore" : "Maximize"}
+            title={isMaximized ? "Restore" : "Maximize"}
+          >
+            {isMaximized ? (
+              <svg viewBox="0 0 10 10" width="10" height="10">
+                <rect
+                  x="1.5"
+                  y="0.5"
+                  width="7"
+                  height="7"
+                  fill="none"
+                  stroke="currentColor"
+                />
+                <rect
+                  x="0.5"
+                  y="2.5"
+                  width="7"
+                  height="7"
+                  fill="var(--bg-elevated)"
+                  stroke="currentColor"
+                />
+              </svg>
+            ) : (
+              <svg viewBox="0 0 10 10" width="10" height="10">
+                <rect
+                  x="0.5"
+                  y="0.5"
+                  width="9"
+                  height="9"
+                  fill="none"
+                  stroke="currentColor"
+                />
+              </svg>
+            )}
+          </button>
+
+          <button
+            className="titlebar-btn titlebar-btn-close"
+            onClick={handleCloseWindow}
+            aria-label="Close"
+            title="Close"
+          >
+            <svg viewBox="0 0 10 10" width="10" height="10">
+              <line x1="0.5" y1="0.5" x2="9.5" y2="9.5" stroke="currentColor" />
+              <line x1="9.5" y1="0.5" x2="0.5" y2="9.5" stroke="currentColor" />
+            </svg>
+          </button>
+        </div>
+      </div>
+
       <header className="app-header">
-        <div className="logo-mark" />
+        <img src={appIcon} alt="" className="logo-mark" />
         <h1 className="app-title">
           LUMINOUS LAUNCHER
           <span className="app-subtitle">
@@ -358,7 +455,7 @@ export default function App() {
                   <>
                     <span className="cpu-match-title">{knownCPU.label}</span>
                     <span className="cpu-match-detail">
-                      Recommended mask <code>{knownCPU.affinityMask}</code>
+                      Recommended mask <code>0x{knownCPU.affinityMask}</code>
                       {knownCPU.enable
                         ? ` — enable cores ${knownCPU.enable}`
                         : ""}
@@ -372,7 +469,7 @@ export default function App() {
                     {knownCPU.cpuName
                       ? `"${knownCPU.cpuName}" isn't in the known profile database`
                       : "Couldn't identify the installed CPU"}{" "}
-                    — defaulting to <code>{DEFAULT_AFFINITY}</code>
+                    — defaulting to <code>0x{DEFAULT_AFFINITY}</code>
                   </span>
                 )}
               </div>

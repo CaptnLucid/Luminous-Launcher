@@ -191,6 +191,23 @@ func (a *App) ShowLayout() {
 	runtime.WindowUnminimise(a.ctx)
 }
 
+// MinimizeWindow is called by the custom in-app titlebar's minimize button.
+func (a *App) MinimizeWindow() {
+	runtime.WindowMinimise(a.ctx)
+}
+
+// ToggleMaximizeWindow is called by the custom in-app titlebar's
+// maximize/restore button (and its header double-click handler).
+func (a *App) ToggleMaximizeWindow() {
+	runtime.WindowToggleMaximise(a.ctx)
+}
+
+// IsWindowMaximized lets the frontend sync its maximize/restore icon with
+// actual window state (e.g. after a double-click or OS-level resize).
+func (a *App) IsWindowMaximized() bool {
+	return runtime.WindowIsMaximised(a.ctx)
+}
+
 // QuitLayout terminates the window loop and background processes cleanly
 func (a *App) QuitLayout() {
 	runtime.Quit(a.ctx)
