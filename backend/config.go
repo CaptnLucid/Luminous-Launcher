@@ -7,6 +7,7 @@ import (
 )
 
 type AppConfig struct {
+	LaunchMode      string `json:"launchMode"`
 	ExecutablePath  string `json:"executablePath"`
 	IsSteam         bool   `json:"isSteam"`
 	AffinityMask    string `json:"affinityMask"`
@@ -27,6 +28,7 @@ func LoadConfig() AppConfig {
 	file, err := os.ReadFile(path)
 	if err != nil {
 		return AppConfig{
+			LaunchMode:      "pearl",
 			ExecutablePath:  "",
 			IsSteam:         false,
 			AffinityMask:    "FFFF",
@@ -35,6 +37,20 @@ func LoadConfig() AppConfig {
 	}
 
 	_ = json.Unmarshal(file, &config)
+
+	// Older config files saved before LaunchMode existed will decode it as "".
+	// Fall back to the previous heuristic so existing installs don't silently
+	// reset to a mode the user didn't pick.
+	if config.LaunchMode == "" {
+		if config.ExecutablePath != "" {
+			config.LaunchMode = "custom"
+		} else if config.IsSteam {
+			config.LaunchMode = "steam"
+		} else {
+			config.LaunchMode = "pearl"
+		}
+	}
+
 	return config
 }
 

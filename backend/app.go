@@ -163,9 +163,13 @@ func (a *App) GetSettings() AppConfig {
 	return LoadConfig()
 }
 
-// SaveSettingUpdate updates specific properties on the fly from UI elements
-func (a *App) SaveSettingUpdate(path string, isSteam bool, affinity string, profile string) bool {
+// SaveSettingUpdate updates specific properties on the fly from UI elements.
+// LaunchMode is included so that switching the top-level Distribution Target
+// dropdown (Pearl Abyss / Steam / Custom) is actually remembered between runs,
+// not just the fields nested under the "Custom Path" panel.
+func (a *App) SaveSettingUpdate(mode string, path string, isSteam bool, affinity string, profile string) bool {
 	config := AppConfig{
+		LaunchMode:      mode,
 		ExecutablePath:  path,
 		IsSteam:         isSteam,
 		AffinityMask:    affinity,
@@ -175,28 +179,11 @@ func (a *App) SaveSettingUpdate(path string, isSteam bool, affinity string, prof
 	return err == nil
 }
 
-// DetectCPUMask exposes the hardware topology parser to the Wails frontend.
-// The Win32 sizing syscall must NOT run on the Wails/JS bridge goroutine — doing
-// so blocks the entire IPC layer and freezes the UI. We hand the work off to a
-// fresh goroutine, wait for it on a channel, and return once it finishes.
-func (a *App) DetectCPUMask() map[string]interface{} {
-	type result struct {
-		mask string
-		logs []string
-	}
-
-	ch := make(chan result, 1)
-
-	go func() {
-		mask, logs := DetectOptimalAffinityMask()
-		ch <- result{mask, logs}
-	}()
-
-	r := <-ch
-	return map[string]interface{}{
-		"mask": r.mask,
-		"logs": r.logs,
-	}
+// GetRecommendedAffinity identifies the installed CPU and returns the
+// matching hardcoded affinity recommendation from the Ryzen database, or the
+// safe FFFF default if the CPU isn't recognized.
+func (a *App) GetRecommendedAffinity() RecommendedAffinity {
+	return GetRecommendedAffinity()
 }
 
 func (a *App) ShowLayout() {
@@ -212,4 +199,3 @@ func (a *App) QuitLayout() {
 func (a *App) GetContext() context.Context {
 	return a.ctx
 }
-
