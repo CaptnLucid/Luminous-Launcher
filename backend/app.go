@@ -102,10 +102,18 @@ func (a *App) ApplyApplicationUpdate(downloadURL string) string {
 		return "Failed streaming unpacked binary payload context: " + err.Error()
 	}
 
-	// 5. Spawn a detached cmd background worker loop script
+	// 5. Spawn a detached cmd background worker loop script.
+	// NOTE: os.Exit(0) below fires almost immediately after this process
+	// starts, so by the time `taskkill` actually runs, this process has
+	// usually already exited on its own - taskkill then fails to find the
+	// PID and returns a non-zero exit code. The steps are joined with "&"
+	// (not "&&") so that a failing/racy taskkill never blocks the move and
+	// relaunch that follow. Combined output is logged next to the exe so a
+	// failure here is diagnosable instead of silently doing nothing.
+	logPath := filepath.Join(filepath.Dir(currentExe), "update.log")
 	cmdScript := fmt.Sprintf(
-		"taskkill /F /PID %d && timeout /T 1 /NOBREAK && move /Y \"%s\" \"%s\" && start \"\" \"%s\"",
-		os.Getpid(), tempNewExe, currentExe, currentExe,
+		"(taskkill /F /PID %d & timeout /T 2 /NOBREAK & move /Y \"%s\" \"%s\" & start \"\" \"%s\") > \"%s\" 2>&1",
+		os.Getpid(), tempNewExe, currentExe, currentExe, logPath,
 	)
 
 	worker := exec.Command("cmd", "/C", cmdScript)
