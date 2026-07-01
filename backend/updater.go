@@ -64,18 +64,20 @@ func CheckForUpdates() (*UpdateStatus, error) {
 			notes = notes[:500] + "..."
 		}
 
-		// Find our compiled binary asset from the release attachments
+		// Find our compiled binary asset package from the release attachments.
+		// ApplyApplicationUpdate (app.go) always unpacks the downloaded file as a
+		// ZIP archive and extracts the .exe from inside it, so the asset we grab
+		// here must be the .zip package, not a raw .exe.
 		downloadURL := ""
 		for _, asset := range release.Assets {
-			if strings.HasSuffix(strings.ToLower(asset.Name), ".exe") {
+			if strings.HasSuffix(strings.ToLower(asset.Name), ".zip") {
 				downloadURL = asset.BrowserDownloadURL
 				break
 			}
 		}
 
-		// Fallback parsing just in case no asset matches the criteria explicitly
 		if downloadURL == "" {
-			downloadURL = fmt.Sprintf("https://github.com/CaptnLucid/Luminous-Launcher/releases/download/%s/BdoLauncher.exe", release.TagName)
+			return nil, fmt.Errorf("latest release %s has no .zip asset to update from", release.TagName)
 		}
 
 		return &UpdateStatus{
